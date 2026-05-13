@@ -1,11 +1,13 @@
 # Mica per-machine / per-session state — regenerated automatically.
-# Kept: .mica/card-classes/, .mica/canvas-back.md, .mica/config.json.
+# Kept: .mica/card-classes/, .mica/canvas-back.md, .mica/config.json,
+# and .mica/layout.json (so the publisher's curated canvas arrangement
+# travels with the repo — receivers can rearrange locally and either
+# commit the changes or `git restore .mica/layout.json` to discard).
 .mica/chats/
 .mica/screenshots/
 .mica/metrics/
 .mica/cards/
 .mica/last-opened
-.mica/layout.json
 
 # Qwen-Code auto-backup; not source.
 .qwen/settings.json.orig

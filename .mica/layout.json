@@ -1,0 +1,45 @@
+{
+  "desktop": {
+    "cards": {
+      "canvas/qwen.chat": {
+        "x": 40,
+        "y": 40,
+        "w": 600,
+        "h": 832,
+        "collapsed": false
+      },
+      "canvas/gpu.gpu-monitor": {
+        "x": 1840,
+        "y": 58,
+        "w": 540,
+        "h": 1001,
+        "collapsed": false
+      },
+      "canvas/gpu-monitor-spec.md": {
+        "x": 40,
+        "y": 985,
+        "w": 747,
+        "h": 905,
+        "collapsed": false
+      },
+      "canvas/gitrepo.gitrepo": {
+        "x": 825,
+        "y": 1334,
+        "w": 647,
+        "h": 800,
+        "collapsed": false
+      },
+      "canvas/terminal-mp4j2nvu.terminal": {
+        "x": 822.7181396484375,
+        "y": 310.2559814453125,
+        "w": 540,
+        "h": 460,
+        "z": 163
+      }
+    },
+    "bounds": {
+      "w": 2580,
+      "h": 2653.6328735351562
+    }
+  }
+}
