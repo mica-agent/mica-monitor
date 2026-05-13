@@ -1,0 +1,23 @@
+# Mica per-machine / per-session state — regenerated automatically.
+# Kept: .mica/card-classes/, .mica/canvas-back.md, .mica/config.json.
+.mica/chats/
+.mica/screenshots/
+.mica/metrics/
+.mica/cards/
+.mica/last-opened
+.mica/layout.json
+
+# Qwen-Code auto-backup; not source.
+.qwen/settings.json.orig
+
+# Claude Code's local IDE state (user-specific, not the project's).
+.claude/
+
+# Generic dev junk
+node_modules/
+dist/
+build/
+*.log
+.env
+.env.local
+.DS_Store
