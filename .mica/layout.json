@@ -1,45 +1,37 @@
 {
   "desktop": {
     "cards": {
-      "canvas/qwen.chat": {
+      "canvas/gpu.gpu-monitor": {
         "x": 40,
         "y": 40,
-        "w": 600,
-        "h": 832,
-        "collapsed": false
-      },
-      "canvas/gpu.gpu-monitor": {
-        "x": 1840,
-        "y": 58,
         "w": 540,
         "h": 1001,
         "collapsed": false
       },
       "canvas/gpu-monitor-spec.md": {
-        "x": 40,
-        "y": 985,
+        "x": 615,
+        "y": 40,
         "w": 747,
         "h": 905,
         "collapsed": false
       },
-      "canvas/gitrepo.gitrepo": {
-        "x": 825,
-        "y": 1334,
-        "w": 647,
-        "h": 800,
+      "canvas/qwen.chat": {
+        "x": 1408,
+        "y": 40,
+        "w": 600,
+        "h": 832,
         "collapsed": false
       },
-      "canvas/terminal-mp4j2nvu.terminal": {
-        "x": 822.7181396484375,
-        "y": 310.2559814453125,
-        "w": 540,
-        "h": 460,
-        "z": 163
+      "canvas/gitrepo.gitrepo": {
+        "x": 1400.592529296875,
+        "y": 896.7551879882812,
+        "w": 621.3717041015625,
+        "h": 715.1610107421875
       }
     },
     "bounds": {
-      "w": 2580,
-      "h": 2653.6328735351562
+      "w": 2528,
+      "h": 1878.015380859375
     }
   }
 }
