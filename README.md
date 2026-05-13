@@ -1,4 +1,4 @@
-# Meter Test1
+# Meter
 
 A Mica canvas project for local GPU monitoring on DGX Spark.
 
