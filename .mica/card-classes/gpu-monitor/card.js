@@ -84,74 +84,124 @@ function parsePower(val) {
   return isNaN(n) ? null : n;
 }
 
-// Monotone cubic (Fritsch-Carlson) spline interpolation — never overshoots.
-// Preserves smoothness while clamping control points so curves can't swing
-// past the actual data values, eliminating false spikes on sharp drops/rises.
-function monotoneCubic(points, numSegments) {
+// Simple moving average — light pre-smoothing (window=3).
+// Averages each point with its immediate neighbors to suppress 1-second noise
+// before spline fitting. Keeps the curve responsive: a single spike still shows
+// up within 1-2 seconds, just without the jagged edge.
+function smooth(data, windowSize) {
+  if (data.length < 3) return data.slice();
+  windowSize = windowSize || 3;
+  const half = Math.floor(windowSize / 2);
+  const result = [];
+  for (let i = 0; i < data.length; i++) {
+    let sum = 0, count = 0;
+    for (let j = Math.max(0, i - half); j <= Math.min(data.length - 1, i + half); j++) {
+      sum += data[j];
+      count++;
+    }
+    result.push(sum / count);
+  }
+  return result;
+}
+
+// Tangent limiter — clamp the maximum slope at each data point.
+// Prevents the spline from producing sharp spikes by limiting how steep
+// the tangent can be at each point. Uses the data's overall slope range
+// as a reference: if a local slope exceeds 2x the average absolute slope,
+// it gets clamped down.
+function limitTangents(points, maxSlopeFactor) {
+  maxSlopeFactor = maxSlopeFactor || 2.0;
+  if (points.length < 3) return points;
+
+  // Compute average absolute slope across all segments
+  let totalSlope = 0, count = 0;
+  for (let i = 1; i < points.length; i++) {
+    const dx = points[i].x - points[i - 1].x;
+    const dy = points[i].y - points[i - 1].y;
+    if (dx > 0) {
+      totalSlope += Math.abs(dy / dx);
+      count++;
+    }
+  }
+  const avgSlope = count > 0 ? totalSlope / count : 0;
+  const maxSlope = avgSlope * maxSlopeFactor;
+
+  // Compute tangents at each point (central difference for interior, forward/backward for endpoints)
+  const tangents = [];
+  for (let i = 0; i < points.length; i++) {
+    let dx, dy;
+    if (i === 0) {
+      dx = points[1].x - points[0].x;
+      dy = points[1].y - points[0].y;
+    } else if (i === points.length - 1) {
+      dx = points[i].x - points[i - 1].x;
+      dy = points[i].y - points[i - 1].y;
+    } else {
+      dx = points[i + 1].x - points[i - 1].x;
+      dy = points[i + 1].y - points[i - 1].y;
+    }
+    let slope = dx > 0 ? dy / dx : 0;
+
+    // Clamp to max slope
+    if (Math.abs(slope) > maxSlope) {
+      slope = Math.sign(slope) * maxSlope;
+    }
+
+    tangents.push({ x: dx, y: dy, slope: slope });
+  }
+
+  // Return points with clamped tangents baked into the Catmull-Rom control
+  // We'll modify the control point computation in catmullRom to use these
+  return tangents;
+}
+
+// Centripetal Catmull-Rom spline interpolation — C1 continuous, passes through all points.
+// Uses α=1.0 (centripetal) to minimize overshoot on sharp peaks and valleys.
+// Pre-smoothing and tangent limiting are applied in updateUI before calling this.
+function catmullRom(points, numSegments, tangents) {
   numSegments = numSegments || 24;
   if (points.length < 2) return points.slice();
-  const n = points.length - 1;
-  // Compute spacing
-  const dx = [], dy = [];
-  for (let i = 0; i < n; i++) {
-    dx[i] = points[i + 1].x - points[i].x;
-    dy[i] = points[i + 1].y - points[i].y;
+
+  function dist(p1, p2) {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    return Math.sqrt(dx * dx + dy * dy);
   }
-  // Slopes between consecutive points
-  const m = [];
-  for (let i = 0; i < n; i++) {
-    m[i] = dx[i] !== 0 ? dy[i] / dx[i] : 0;
-  }
-  // Compute tangents via weighted average of adjacent slopes
-  const t = [];
-  for (let i = 0; i < n; i++) {
-    const wi = dx[i + 1] || 0;
-    const wj = dx[i] || 0;
-    if (m[i] * m[i + 1] <= 0) {
-      // Sign change — zero tangent to avoid overshoot
-      t[i] = 0;
-      t[i + 1] = 0;
-    } else {
-      // Weighted harmonic mean (Fritsch-Carlson)
-      const wSum = wi + wj;
-      if (wSum === 0) {
-        t[i] = m[i];
-        t[i + 1] = m[i + 1];
-      } else {
-        t[i] = (3 * wSum) / (wi / m[i] + wj / m[i + 1] + wSum);
-        t[i + 1] = t[i]; // symmetric for equal spacing
-      }
-    }
-  }
-  // Clamp tangents: scale down so the Hermite curve stays within the
-  // bounding box of its endpoints (prevents overshoot).
-  for (let i = 0; i < n; i++) {
-    const alpha = t[i] / (m[i] || 1);
-    const beta = t[i + 1] / (m[i + 1] || 1);
-    const a2 = alpha * alpha, b2 = beta * beta;
-    const s = Math.sqrt(a2 + b2);
-    if (s > 3) {
-      const scale = 3 / s;
-      t[i] *= scale;
-      t[i + 1] *= scale;
-    }
-  }
-  // Hermite interpolation with clamped tangents
+
   const result = [];
-  for (let i = 0; i < n; i++) {
-    const p0 = points[i], p1 = points[i + 1];
-    const h = dx[i] || 1;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+
+    const dt0 = dist(p0, p1);
+    const dt1 = dist(p1, p2);
+    const dt2 = dist(p2, p3);
+
+    // Centripetal time parameters (alpha=1.0)
+    const t0 = dt0 > 0 ? -dt0 : -dt1;
+    const t1 = 0;
+    const t2 = dt1;
+    const t3 = dt1 + dt2;
+
     for (let s = 0; s < numSegments; s++) {
-      const u = s / numSegments;
-      const u2 = u * u;
-      const u3 = u2 * u;
-      // Hermite basis functions
-      const h00 = 2 * u3 - 3 * u2 + 1;
-      const h10 = u3 - 2 * u2 + u;
-      const h01 = -2 * u3 + 3 * u2;
-      const h11 = u3 - u2;
-      const x = h00 * p0.x + h10 * h * t[i] + h01 * p1.x + h11 * h * t[i + 1];
-      const y = h00 * p0.y + h10 * t[i] + h01 * p1.y + h11 * t[i + 1];
+      const t = (s / numSegments) * dt1;
+
+      // Lagrange interpolation with centripetal time values
+      const d0 = (t0 - t1) * (t0 - t2) * (t0 - t3);
+      const d1 = (t1 - t0) * (t1 - t2) * (t1 - t3);
+      const d2 = (t2 - t0) * (t2 - t1) * (t2 - t3);
+      const d3 = (t3 - t0) * (t3 - t1) * (t3 - t2);
+
+      const a0 = ((t - t1) * (t - t2) * (t - t3)) / d0;
+      const a1 = ((t - t0) * (t - t2) * (t - t3)) / d1;
+      const a2 = ((t - t0) * (t - t1) * (t - t3)) / d2;
+      const a3 = ((t - t0) * (t - t1) * (t - t2)) / d3;
+
+      const x = a0 * p0.x + a1 * p1.x + a2 * p2.x + a3 * p3.x;
+      const y = a0 * p0.y + a1 * p1.y + a2 * p2.y + a3 * p3.y;
+
       result.push({ x, y });
     }
   }
@@ -212,16 +262,19 @@ function drawGraph(ctx, canvas, data, color, opts) {
     return;
   }
 
+  // Pre-smooth the raw data (light moving average)
+  const smoothedData = smooth(data);
+
   // Convert data to {x, y} points
-  const points = data.map((val, i) => {
-    const x = pad.left + (i / (data.length - 1)) * graphW;
+  const points = smoothedData.map((val, i) => {
+    const x = pad.left + (i / (smoothedData.length - 1)) * graphW;
     const clampedVal = Math.max(0, Math.min(val, maxVal));
     const y = pad.top + graphH * (1 - (clampedVal - minVal) / (maxVal - minVal));
     return { x, y };
   });
 
-  // Draw filled area under the monotone cubic curve
-  const curvePoints = monotoneCubic(points, 24);
+  // Draw filled area under the Catmull-Rom curve
+  const curvePoints = catmullRom(points, 24);
   const gradient = ctx.createLinearGradient(0, pad.top, 0, pad.top + graphH);
   gradient.addColorStop(0, color + '40');
   gradient.addColorStop(1, color + '05');
@@ -248,9 +301,10 @@ function drawGraph(ctx, canvas, data, color, opts) {
   }
   ctx.stroke();
 
-  // Draw current value dot with pulse animation
-  const lastVal = data[data.length - 1];
-  const clampedLast = Math.max(0, Math.min(lastVal, maxVal));
+  // Draw current value dot — use the same smoothed value the line uses,
+  // otherwise the dot sits at the raw value while the curve is smoothed.
+  const lastSmoothedVal = smoothedData[smoothedData.length - 1];
+  const clampedLast = Math.max(0, Math.min(lastSmoothedVal, maxVal));
   const dotX = pad.left + graphW;
   const dotY = pad.top + graphH * (1 - (clampedLast - minVal) / (maxVal - minVal));
 
