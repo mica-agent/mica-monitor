@@ -2,6 +2,8 @@
 
 A Mica canvas project for local GPU monitoring on DGX Spark.
 
+<img width="3978" height="2488" alt="monitor" src="https://github.com/user-attachments/assets/d7425ca1-b106-4639-a667-b4ba0d7b9cab" />
+
 ## Overview
 
 This project runs the [Mica](https://github.com/agentfree-dom/canvas) canvas framework on a DGX Spark system, providing real-time GPU and system resource visibility through interactive dashboard cards.
